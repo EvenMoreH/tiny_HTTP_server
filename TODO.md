@@ -1,219 +1,88 @@
-# 0 Project prep
+# Project skeleton
 
-- [x] Create a project folder with:
-    - [x] `index.html` (your portfolio page)
-    - [x] A place for your server source file
-    - [x] Optional: a `static/` folder for future assets (css/js/img)
-- [ ] Decide host/port (e.g., `0.0.0.0:8080`)
-- [ ] Decide routes you'll support:
-    - [ ] `/` (serve `index.html`)
-    - [ ] `/api/hello` (return JSON)
+- [x] Create a folder (e.g., tiny-http/).
+- [x] Add server.py for the Python code.
+- [x] Add an index.html file (any valid HTML).
+- [x] Ensure Python 3.8+ is installed (python3 --version).
 
-# 1 Open the listening socket
+# Basic config
 
-- [ ] Create TCP server socket (IPv4/IPv6 as you prefer)
-- [ ] Set reuse options (e.g., `SO_REUSEADDR`, optionally `SO_REUSEPORT`)
-- [ ] Bind to host/port and `listen(backlog)`
-- [ ] Print a startup banner with the URL
+- [x] Decide bind address/port (e.g., HOST="0.0.0.0", PORT=8080).
+- [x] Understand that 0.0.0.0 exposes to your LAN; use 127.0.0.1 for local only.
+- [x] Make sure port 8080 is free (change if needed).
 
-**Acceptance:** `netstat`/`ss` shows the port listening; no crash on start.
+# Load static content
 
-# 2 Accept connections loop
+- [x] Read your landing page once at startup: INDEX = Path("index.html").read_bytes().
+- [x] Keep it as bytes to avoid encoding surprises.
 
-- [ ] `accept()` a client and obtain `(conn, addr)`
-- [ ] Wrap connection handling in a `try/finally` to **always** close the socket
-- [ ] (Single-threaded is fine to start; one request at a time)
+# HTTP response builder
 
-**Acceptance:** Incoming connections don't crash the server even if the client disconnects early.
+- [x] Implement a helper that creates the raw HTTP response:
+- [x] Status line: HTTP/1.1 200 OK (or other).
+- [x] Mandatory headers: Content-Type, Content-Length, Connection: close.
+- [x] Blank line \r\n\r\n, then the body (bytes).
+- [x] Compute Content-Length from the byte length, not chars.
 
-# 3 Read the HTTP request (headers only)
+# Request reading (from socket)
 
-- [ ] Initialize a buffer `buf = empty`
-- [ ] Repeatedly `recv()` until you find `\r\n\r\n` (end of headers) **or** hit:
-    - [ ] A max header size limit (e.g., 64 KiB) → if exceeded, plan to return `431 Request Header Fields Too Large` or `400`
-    - [ ] A read timeout (optional for v1, add later)
-- [ ] If the client closes before you get headers, handle gracefully
+- [ ] Accept a TCP connection and read until the end of headers \r\n\r\n.
+- [ ] Impose a max header size (e.g., 64 KiB) to avoid abuse.
+- [ ] Don't assume the whole request arrives in one recv; loop until done or limit hit.
+- [ ] If the peer closes early, handle gracefully.
 
-**Acceptance:** For a basic GET, the full request head is captured and you stop reading.
+# Request parsing (minimal)
 
-# 4 Parse the request line (only)
+- [ ] Split the request into headers/body at \r\n\r\n.
+- [ ] Decode headers as UTF-8 with "replace" on errors.
+- [ ] Extract the request line (first line) and split into method, path, http-version.
+- [ ] On failure, return 400 Bad Request.
 
-- [ ] Split the header block on `\r\n`; take the **first line** as the request line
-- [ ] Extract:
-    - [ ] `method` (expect `GET` only)
-    - [ ] `path` (e.g., `/`, `/api/hello`, possibly `/index.html`)
-    - [ ] `http_version` (e.g., `HTTP/1.1`) – you don't need to use it yet
-- [ ] If parsing fails → return `400 Bad Request`
-- [ ] If `method != GET` → return `405 Method Not Allowed` with a plain-text body
-- [ ] Parse request headers to extract `Accept-Language` for localization (v1.1)
+# Method gating
 
-**Acceptance:** A malformed request yields `400`; non-GET yields `405`.
+- [ ] Allow only GET for this tiny server.
+- [ ] For anything else, return 405 Method Not Allowed (optionally include Allow: GET).
 
-# 5 Basic routing
+# Simple routing
 
-- [ ] If `path == "/"` or `"/index.html"` → serve `index.html` (static for v1)
-- [ ] If `path == "/api/hello"` → serve a small JSON payload
-- [ ] Everything else → return `404 Not Found`
+- [ ] If path is / or /index.html: return the HTML you preloaded with Content-Type: text/html; charset=utf-8.
+- [ ] If path is /api/hello:
+    - [ ] Build a small dict payload.
+    - [ ] json.dumps(...) then .encode("utf-8").
+    - [ ] Use Content-Type: application/json; charset=utf-8.
+- [ ] Anything else → 404 Not Found.
 
-**Acceptance:** `curl /`, `curl /index.html`, and `curl /api/hello` each produce expected outcomes; unknown path → 404.
+# Socket server loop
 
-# 6 Prepare response bodies
+- [ ] Create a listening socket: socket.create_server((HOST, PORT), reuse_port=True).
+- [ ] Print the URL for convenience.
+- [ ] In a while True loop: accept(), read headers, sendall(handle_request(buf)), close.
+- [ ] Wrap connection handling in a context manager (with conn:) so it always closes.
 
-- [ ] Load `index.html` **once at startup** into memory (bytes) for v1
-- [ ] Prepare JSON for `/api/hello` (e.g., `{"message":"...","ok":true}`) as bytes
-- [ ] Decide default error bodies (`bad request`, `not found`, etc.)
+# Run & test
 
-**Acceptance:** You can construct the needed response bodies without file I/O on every request.
+- [ ] Start: python3 server.py.
+- [ ] Visit http://localhost:8080/ in a browser; expect your index.html.
+- [ ] Test API: curl -i http://localhost:8080/api/hello (should see JSON and correct headers).
+- [ ] Test 404: curl -i http://localhost:8080/does-not-exist.
 
-# 7 Build an HTTP response function
+# Platform & port quirks (quick fixes)
 
-- [ ] Inputs: `status` (e.g., `"200 OK"`), `content_type`, and `body` (bytes)
-- [ ] Always include headers:
-    - [ ] `Content-Type: <value>` (e.g., `text/html; charset=utf-8`, `application/json; charset=utf-8`, `text/plain; charset=utf-8`)
-    - [ ] `Content-Length: <len(body)>` (must be exact)
-    - [ ] `Connection: close`
-- [ ] Format: status line + headers (CRLF-terminated) + blank line + body
-- [ ] Return the complete byte sequence ready to `sendall()`
+- [ ] If reuse_port=True isn't supported on your OS, set it to False.
+- [ ] If you see "Address already in use," pick another port or kill the previous process.
+- [ ] Ports <1024 may require admin rights; stick to 1024+ for dev.
+- [ ] If testing across machines, open firewall for the chosen port.
 
-**Acceptance:** `curl -i` shows correct status line, headers, and body; body length matches.
+# Minimal hygiene
 
-# 8 Send the response
+- [ ] Add try/except around parsing to avoid crashing on bad input.
+- [ ] Cap header size and ignore/close on over-limit input.
+- [ ] Log request line and status (print is fine for now).
 
-- [ ] For each connection:
-    - [ ] Read headers into `buf`
-    - [ ] Build response according to routing
-    - [ ] `sendall()` the full response
-    - [ ] Close the connection
-- [ ] Ignore keep-alive; you're doing one-shot requests for v1
+# Nice-to-have next steps (optional)
 
-**Acceptance:** `ab`/`wrk` light testing shows consistent responses and no lingering connections after completion.
-
-# 9 MIME and small niceties (v1.1 of your server)
-
-- [ ] Ensure `index.html` uses `text/html; charset=utf-8`
-- [ ] Return a minimal `favicon.ico` or a `404` that doesn't spam logs
-- [ ] Include `Date` header (optional)
-- [ ] Normalize `\n` vs `\r\n` safely in your own output (must use `\r\n`)
-
-**Acceptance:** Browsers don't complain; no endless `favicon.ico` errors.
-
-# 10 Error handling policy
-
-- [ ] `400 Bad Request` for malformed request line
-- [ ] `405 Method Not Allowed` for non-GET
-- [ ] `404 Not Found` for unknown paths
-- [ ] `431` or `400` if header block exceeds your cap
-- [ ] Catch-all try/catch to return `500 Internal Server Error` on unexpected exceptions
-
-**Acceptance:** You can trigger each error path via `curl` and get the intended status.
-
-# 11 Logging (basic)
-
-- [ ] On each request, log:
-    - [ ] Remote address
-    - [ ] Method + path
-    - [ ] Status code
-    - [ ] Response size (bytes)
-    - [ ] Duration (ms) (optional)
-- [ ] On startup/shutdown, log a clear message
-
-**Acceptance:** You can read logs and reconstruct basic traffic.
-
-# 12 Graceful shutdown
-
-- [ ] Handle an interrupt signal (`SIGINT`) to:
-    - [ ] Stop accepting new connections
-    - [ ] Close the listening socket
-    - [ ] Let an in-flight request finish (if you later add concurrency)
-- [ ] Print a clean shutdown message
-
-**Acceptance:** Ctrl-C exits cleanly without stack traces or port leaks.
-
-# 13 Manual tests
-
-- [ ] `curl -i http://localhost:8080/`
-- [ ] `curl -i http://localhost:8080/api/hello`
-- [ ] `curl -i http://localhost:8080/does-not-exist`
-- [ ] `curl -i -X POST http://localhost:8080/` → expect `405`
-- [ ] Browser test at `http://localhost:8080/` renders your page
-
-**Acceptance:** All return expected HTTP statuses and bodies.
-
-# 14 Dynamic HTML generation (v2 enhancement)
-
-- [ ] Create a simple templating system for `index.html`
-- [ ] Generate content dynamically instead of serving static file
-- [ ] Support placeholders for content insertion
-- [ ] Extract common layout elements (header, footer) 
-- [ ] Support template inheritance or includes
-
-**Acceptance:** Dynamic HTML pages render correctly with appropriate content.
-
-# 15 Localization with i18n (v2 enhancement)
-
-- [ ] Create localization files:
-   - [ ] Establish directory structure (e.g., `/locales/en/`, `/locales/es/`)
-   - [ ] Create JSON/YAML translation files for supported languages
-   - [ ] Include translations for UI text and messages
-- [ ] Implement language detection:
-   - [ ] Parse `Accept-Language` header from requests
-   - [ ] Support language URL prefix (e.g., `/es/`, `/en/`)
-   - [ ] Implement fallback language mechanism
-- [ ] Integrate with dynamic HTML:
-   - [ ] Replace hardcoded strings with translation keys
-   - [ ] Select appropriate translations when rendering templates
-   - [ ] Add language switcher to UI
-
-**Acceptance:** Users see content in their preferred language; language can be changed via URL or UI.
-
-# 16 Optional: static file serving
-
-- [ ] Add route prefix `/static/`
-- [ ] Map path to `./static/<rest>`
-- [ ] Prevent path traversal (`..`)
-- [ ] Guess `Content-Type` from extension (html, css, js, png, jpg, svg)
-- [ ] Add `Cache-Control` headers (e.g., long TTL for hashed assets)
-
-**Acceptance:** `curl -I` shows correct types; assets load in the browser.
-
-# 17 Optional: simple query parsing
-
-- [ ] Parse `?name=...` for an endpoint like `/api/hello?name=Ana`
-- [ ] Return JSON with that value
-- [ ] Set default when missing
-
-**Acceptance:** Query param is reflected safely in JSON.
-
-# 18 Optional: timeouts & safety (hardening)
-
-- [ ] Header read timeout (e.g., 5–10s)
-- [ ] Max header size (already added)
-- [ ] Limit concurrent clients (if you add concurrency)
-- [ ] Input validation on paths
-- [ ] Basic rate limiting (later, if needed)
-
-**Acceptance:** Slowloris attempts don't hang the server indefinitely.
-
-# 19 Cloudflare front (when you deploy)
-
-- [ ] Choose one:
-    - [ ] **DNS (orange cloud)** to your server's IP
-    - [ ] **Cloudflare Tunnel** to `http://localhost:8080`
-- [ ] Cloudflare settings:
-    - [ ] SSL mode: **Full** (or **Full (strict)** if you later add TLS at origin)
-    - [ ] **Always Use HTTPS** enabled
-    - [ ] **Brotli** + **Auto Minify** on
-    - [ ] Cache rule for static files (optional; set proper `Cache-Control` at origin)
-- [ ] Firewall: restrict direct origin access to Cloudflare IP ranges (if public)
-
-**Acceptance:** Your domain serves via HTTPS, and direct origin IP isn't publicly reachable (or is tunnel-only).
-
-# 20 Stretch goals
-
-- [ ] Add a tiny **health endpoint** (`/healthz`) returning `200 OK`
-- [ ] Add a **/api/time** endpoint with server time in JSON
-- [ ] Add minimal **CORS** headers for your API (if you'll call it from a different origin)
-- [ ] Swap to a **thread-per-connection** or **async** model to learn concurrency
-- [ ] Instrument simple **metrics** (request count, latency, 5xx count)
-- [ ] Support content negotiation via `Accept-Language` with quality values
-- [ ] Implement language-specific SEO metadata
+- [ ] Serve more static files (map /static/... to a directory with MIME detection).
+- [ ] Add threading or selectors for concurrency if you expect multiple clients.
+- [ ] Implement basic keep-alive (HTTP/1.1) or stick with Connection: close as shown.
+- [ ] Return Date and Server headers for completeness (not required).
+- [ ] Unit-test handle_request with crafted byte requests.
