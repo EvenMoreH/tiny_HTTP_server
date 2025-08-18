@@ -1,15 +1,37 @@
 body {
     font-family: Arial, sans-serif;
-    background: #181818;
-    color: #e0e0e0;
+    background: #fafafa;
+    color: #181818;
     margin: 0;
     padding: 0;
     text-align: center;
 }
 
 h1 {
-    color: #fafafa;
+    color: #222;
     margin-top: 60px;
     font-size: 2.5em;
     letter-spacing: 1px;
+}
+
+/* dark theme for users who prefer dark color scheme */
+@media (prefers-color-scheme: dark) {
+    body {
+        background: #181818;
+        color: #e0e0e0;
+    }
+    h1 {
+        color: #fafafa;
+    }
+}
+
+/* light theme for users who prefer light color scheme */
+@media (prefers-color-scheme: light) {
+    body {
+        background: #fafafa;
+        color: #181818;
+    }
+    h1 {
+        color: #222;
+    }
 }
