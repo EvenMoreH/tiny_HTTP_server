@@ -40,6 +40,30 @@ def http_response(status="200 OK", content_type="text/plain; charset=utf-8", bod
 
 # function to handle this servers requests including homepage and demo api call
 def handle_request(req: bytes) -> bytes:
+    """
+    Handles an incoming HTTP request and returns an appropriate HTTP response.
+    This function processes a raw HTTP request in bytes, parses the request line,
+    and determines the correct response based on the HTTP method and requested path.
+    Line-by-line explanation:
+    1. Attempts to parse the HTTP request:
+        - Splits the request into headers and body using the double CRLF delimiter (`\r\n\r\n`).
+        - Decodes the header portion from bytes to a UTF-8 string, replacing invalid characters.
+        - Extracts the request line (the first line of the header).
+        - Splits the request line into HTTP method, path, and protocol version.
+    2. If parsing fails at any point, returns a "400 Bad Request" response.
+    3. Checks if the HTTP method is "GET":
+        - If not, returns a "405 Method Not Allowed" response indicating only GET is supported.
+    4. Handles requests for the homepage:
+        - If the path is "/" or "/index.html", returns a "200 OK" response with the homepage HTML content.
+    5. Handles the "/api/hello" endpoint:
+        - If the path is "/api/hello", returns a "200 OK" response with a JSON payload containing a greeting message.
+    6. For any other path not explicitly handled:
+        - Returns a "404 Not Found" response indicating the resource does not exist.
+    Args:
+         req (bytes): The raw HTTP request received from the client.
+    Returns:
+         bytes: The raw HTTP response to be sent back to the client.
+    """
     try:
         head = req.split(b"\r\n\r\n", 1)[0].decode("utf-8", "replace")
         request_line = head.split("\r\n", 1)[0]
@@ -63,4 +87,65 @@ def handle_request(req: bytes) -> bytes:
     # handling for all other paths that were not specified
     return http_response(status="404 Not Found", body=b"Not Found")
 
-# Creating a socket? :
+
+# Creating a socket and handling incoming connections:
+# This section sets up the HTTP server socket and handles incoming client connections in a loop.
+#
+# Step-by-step explanation:
+# 1. Socket creation with error handling:
+#    - Attempts to create a server socket with reuse_port=True for better performance
+#    - Falls back to basic socket creation if reuse_port is not supported on the platform
+#    - Binds to the specified HOST and PORT (0.0.0.0:5073)
+#
+# 2. Server main loop setup:
+#    - Uses context manager (with statement) to ensure proper socket cleanup
+#    - Prints server startup message with the listening address
+#    - Enters infinite loop to continuously accept new connections
+#
+# 3. Connection handling for each client:
+#    - Accepts incoming connection and gets client address information
+#    - Logs each new connection with connection object and client address
+#    - Uses context manager for automatic connection cleanup
+#
+# 4. Request processing with timeout and buffering:
+#    - Sets 5-second timeout to prevent hanging connections
+#    - Implements buffering system to read complete HTTP requests:
+#      * Reads data in 4096-byte chunks
+#      * Continues until finding HTTP header delimiter (\r\n\r\n) or reaching 64KB limit
+#      * Prevents incomplete request processing and memory exhaustion
+#    - Sends the complete buffered request to handle_request() function
+#    - Sends the generated HTTP response back to the client
+#
+# 5. Error handling for various connection issues:
+#    - socket.timeout: Handles connections that don't send data within timeout period
+#    - ConnectionAbortedError: Handles cases where client forcibly closes connection
+#    - General Exception: Catches any other unexpected errors during request processing
+#    - All errors are logged with descriptive messages for debugging purposes
+
+try:
+    server = socket.create_server((HOST, PORT), reuse_port=True)
+except (ValueError, OSError) as e:
+    print(f"reuse_port not available on this platform, falling back {e}")
+    server = socket.create_server((HOST, PORT))
+
+with server:
+    print(f"Serving on http://{HOST}:{PORT}")
+
+    while True:
+        connection, address = server.accept()
+        print(f"Incoming connection: {connection} // {address}")
+        with connection:
+            connection.settimeout(5)
+            try:
+                buffer = b""
+                while b"\r\n\r\n" not in buffer and len(buffer) < 65536:
+                    chunk = connection.recv(4096)
+                    if not chunk: break
+                    buffer += chunk
+                connection.sendall(handle_request(buffer))
+            except socket.timeout:
+                print(f"Connection timed out for {address}")
+            except ConnectionAbortedError as e:
+                print(f"Connection aborted: {e}")
+            except Exception as e:
+                print(f"Error handling request: {e}")

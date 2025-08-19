@@ -3,9 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <title>Tiny HTTP Server</title>
-    <link rel="stylesheet" href="static/style.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'pixel': ['"Press Start 2P"', 'cursive']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* dark theme for users who prefer dark color scheme */
+        @media (prefers-color-scheme: dark) {
+            body {
+                background: #181818 !important;
+                color: #e0e0e0 !important;
+            }
+            h1 {
+                color: #fafafa !important;
+            }
+        }
+
+        /* light theme for users who prefer light color scheme */
+        @media (prefers-color-scheme: light) {
+            body {
+                background: #fafafa !important;
+                color: #181818 !important;
+            }
+            h1 {
+                color: #222 !important;
+            }
+        }
+    </style>
 </head>
-<body>
-    <h1>Hi! This is my Tiny HTTP Server</h1>
+<body class="font-pixel bg-zinc-50 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200 m-0 p-0 text-center min-h-screen">
+    <h1 class="text-zinc-700 dark:text-zinc-50 mt-24 text-2xl md:text-4xl tracking-wider">
+        Hi! This is my Tiny HTTP Server
+    </h1>
 </body>
 </html>

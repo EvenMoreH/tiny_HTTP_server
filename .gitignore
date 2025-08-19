@@ -208,3 +208,8 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Optional Files for future learning:
+locales/
+static/
+temp/
