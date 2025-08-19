@@ -100,14 +100,14 @@ tiny_HTTP_server/
 
 ## 📋 Supported Features
 
-✅ **HTTP GET requests**
-✅ **Static HTML serving**
-✅ **JSON API endpoint** (`/api/hello`)
-✅ **Error handling** (400, 404, 405 responses)
-✅ **Connection timeouts**
-✅ **Graceful connection cleanup**
-✅ **Docker deployment**
-✅ **Responsive HTML** (Tailwind CSS)
+- ✅ **HTTP GET requests**
+- ✅ **Static HTML serving**
+- ✅ **JSON API endpoint** (`/api/hello`)
+- ✅ **Error handling** (400, 404, 405 responses)
+- ✅ **Connection timeouts**
+- ✅ **Graceful connection cleanup**
+- ✅ **Docker deployment**
+- ✅ **Responsive HTML** (Tailwind CSS)
 
 ## 🚧 Educational Limitations
 
